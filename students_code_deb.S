@@ -20,7 +20,6 @@ sbox:	.byte	99,124,119,123,-14,107,111,-59,48,1,103,43,-2,-41,-85,118
 		.byte	-116,-95,-119,13,-65,-26,66,104,65,-103,45,15,-80,84,-69,22
 
 .section	.text
-main:
 keyMixing:
     # get the parameters
     leaq sbox, %rdi
@@ -50,8 +49,34 @@ keyMixing:
     jne loop
     ret
 
-
+main:
 byteSubstitution:
+
+    #; save the address of first 4 bytes input in rax
+    #; movq %rdi, %rax
+    leaq sbox, %rax
+    #; get the new value from sbox and save in bl
+    #; movb sbox(,%rax, 1), %bl
+    #; update the value of input
+    #; movb %bl, (%rax)
+
+    #; rdx is a counter
+    #; r8 is the index
+    #; r9 is the value in input
+    #; r10 is the value in key
+    movq $2, %rdx
+    movq $0, %r8
+    movq $0, %r9
+    movq $0, %r10
+
+    loop2:
+    movsxb (%rax ,%r8, 1), %r9
+    movb sbox(,%r9, 1), %bl
+    movb %bl, (%rax ,%r8, 1)
+
+    inc %r8
+    cmp %r8, %rdx
+    jne loop2
 	ret
 
 

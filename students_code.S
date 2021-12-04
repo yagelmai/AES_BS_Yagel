@@ -46,8 +46,28 @@ keyMixing:
     jne loop
     ret
 
-
 byteSubstitution:
+        #; save the address of first 4 bytes input in rax
+    movq %rdi, %rax
+
+    #; rdx is a counter
+    #; r8 is the index
+    #; r9 is the value in input
+    #; r10 is the value in key
+    movq $16, %rdx
+    movq $0, %r8
+    movq $0, %r9
+    movq $0, %r10
+
+    loopp:
+        movsxb (%rax ,%r8, 1), %r9
+        movsxb sbox(,%r9, 1), %rbx
+        movb %bl, (%rax ,%r8, 1)
+
+    inc %r8
+    cmp %r8, %rdx
+    jne loopp
+
 	ret
 
 
