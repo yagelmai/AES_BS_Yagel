@@ -49,7 +49,7 @@ keyMixing:
     jne loop
     ret
 
-main:
+
 byteSubstitution:
 
     #; save the address of first 4 bytes input in rax
@@ -64,15 +64,16 @@ byteSubstitution:
     #; r8 is the index
     #; r9 is the value in input
     #; r10 is the value in key
-    movq $2, %rdx
+    movq $16, %rdx
     movq $0, %r8
     movq $0, %r9
-    movq $0, %r10
+    leaq sbox(%rip), %r10
 
     loop2:
-    movsxb (%rax ,%r8, 1), %r9
-    movb sbox(,%r9, 1), %bl
-    movb %bl, (%rax ,%r8, 1)
+        movsxb (%rax ,%r8, 1), %r9
+        movsxb (%r10, %r9), %rbx
+        movb %bl, (%rax ,%r8, 1)
+
 
     inc %r8
     cmp %r8, %rdx
@@ -118,6 +119,41 @@ shiftRows:
     movb  %r10b, 15(%rax)
 	ret
 
-
+main:
 cipher:
+    # get the parameters
+    leaq sbox, %rdi
+    leaq sbox +16, %rsi
+    leaq sbox +32, %rdx
+    movq %rdi, %rax
+    movq %rsi, %rcx
+    #; put the len in r8d reg
+    movl 0(%rdx), %r8d
+
+    #; r11 is a counter
+    #; r8 is the index
+    #; r9 is the value in input
+    movq $8, %r11
+    movq $0, %r8
+    movq $0, %r9
+
+    loop3:
+        call byteSubstitution
+        break1:
+        call shiftRows
+        break2:
+        call mixColumns
+        break3:
+        call keyMixing
+        inc %r8
+        cmp %r8, %r11
+        je loop3
+
+    call byteSubstitution
+    call shiftRows
+    call keyMixing
+
+    nop
+
+
 	ret

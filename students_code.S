@@ -1,5 +1,6 @@
 .global	keyMixing, byteSubstitution, shiftRows, cipher
 
+
 .section	.data
 sbox:	.byte	99,124,119,123,-14,107,111,-59,48,1,103,43,-2,-41,-85,118
 		.byte	-54,-126,-55,125,-6,89,71,-16,-83,-44,-94,-81,-100,-92,114,-64
@@ -57,11 +58,11 @@ byteSubstitution:
     movq $16, %rdx
     movq $0, %r8
     movq $0, %r9
-    movq $0, %r10
+    leaq sbox(%rip), %r10
 
     loopp:
         movsxb (%rax ,%r8, 1), %r9
-        movsxb sbox(,%r9, 1), %rbx
+        movsxb (%r10, %r9), %rbx
         movb %bl, (%rax ,%r8, 1)
 
     inc %r8
@@ -109,6 +110,31 @@ shiftRows:
     movb  %r10b, 15(%rax)
 	ret
 
-
 cipher:
+    # get the parameters
+    movq %rdi, %rax
+    movq %rsi, %rcx
+    #; put the len in r8d reg
+    movl 0(%rdx), %r8d
+
+    #; r11 is a counter
+    #; r8 is the index
+    #; r9 is the value in input
+    movq $8, %r11
+    movq $0, %r8
+    movq $0, %r9
+
+    loop3:
+        call byteSubstitution
+        call shiftRows
+        call mixColumns
+        call keyMixing
+        inc %r8
+        cmp %r8, %r11
+        je loop3
+
+    call byteSubstitution
+    call shiftRows
+    call keyMixing
+
 	ret
