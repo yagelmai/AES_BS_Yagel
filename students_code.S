@@ -35,20 +35,18 @@ keyMixing:
     movq $0, %r10
 
     loop:
-    movsxb (%rax ,%r8, 1), %r9
-    movsxb (%rcx ,%r8, 1), %r10
-    xor %r10, %r9
-    movb %r9b, (%rax ,%r8, 1)
+        movsxb (%rax ,%r8, 1), %r9
+        movsxb (%rcx ,%r8, 1), %r10
+        xor %r10, %r9
+        movb %r9b, (%rax ,%r8, 1)
 
-    # movsxb (%rax ,%r8, 1), %r11
-
-    inc %r8
-    cmp %r8, %rdx
-    jne loop
+        inc %r8
+        cmp %r8, %rdx
+        jne loop
     ret
 
 byteSubstitution:
-        #; save the address of first 4 bytes input in rax
+    #; save the address of first 4 bytes input in rax
     movq %rdi, %rax
 
     #; rdx is a counter
@@ -108,33 +106,62 @@ shiftRows:
     movb  %r8b, 13(%rax)
     movb  %r9b, 14(%rax)
     movb  %r10b, 15(%rax)
+    
 	ret
 
 cipher:
-    # get the parameters
-    movq %rdi, %rax
-    movq %rsi, %rcx
-    #; put the len in r8d reg
-    movl 0(%rdx), %r8d
-
+    #; prolog
+    pushq %rbp
+    movq %rsp, %rbp
+    subq $48, %rsp
+    #; get the parameters
+    movq %rdi, -48(%rbp)    #; the input address
+    movq %rsi, -8(%rbp)     #; the key address
+    movq %rdx, -40(%rbp)    #; the limit of inner loop (len)
     #; r11 is a counter
     #; r8 is the index
     #; r9 is the value in input
-    movq $8, %r11
-    movq $0, %r8
-    movq $0, %r9
+    movq $9, -16(%rbp)      #; Nr
+    movq $0, -24(%rbp)      #; the counet of outer loop
+    movq $0, -32(%rbp)      #; the counter of inner loop
+    xor %r12, %r12
 
+    loop4:
+    call keyMixing
     loop3:
         call byteSubstitution
         call shiftRows
         call mixColumns
+        movq -8(%rbp), %rsi
+        movq -48(%rbp), %rdi
+        movq -40(%rbp), %rdx
         call keyMixing
-        inc %r8
-        cmp %r8, %r11
-        je loop3
+        movq -16(%rbp), %r11
+        movq -24(%rbp), %r14
+        inc %r14
+        movq %r14, -24(%rbp)
+        cmp %r14, %r11
+        jne loop3
 
+    movq $0, %r14
+    movq %r14, -24(%rbp)
     call byteSubstitution
     call shiftRows
     call keyMixing
+    movq -32(%rbp), %r12    #; the counter
+    movq -40(%rbp), %r13    #; len
+    inc %r12
+    here:
+    movq -48(%rbp), %rdi
+    addq $128, %rdi       #; now the next block all over again
+    movq %rdi, -48(%rbp)
+    movq %r12, -32(%rbp)
+    cmp %r13, %r12
+    jne loop4
+
+
+    ;#Epilog
+    movq %rbp, %rsp
+    popq %rbp
 
 	ret
