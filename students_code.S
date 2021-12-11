@@ -21,14 +21,26 @@ sbox:	.byte	99,124,119,123,-14,107,111,-59,48,1,103,43,-2,-41,-85,118
 
 .section	.text
 keyMixing:
-    # get the parameters
-    movq %rdi, %rax
-    movq %rsi, %rcx
+    #; prolog
+    pushq %rbp
+    movq %rsp, %rbp
+    #; backup parameters
+    subq $48, %rsp
+    movq %rax, -24(%rbp)
+    movq %rcx, -16(%rbp)
+    movq %rdx, -8(%rbp)
+    movq %r8, -32(%rbp)
+    movq %r9, -40(%rbp)
+    movq %r10, -48(%rbp)
 
-    # rdx is a counter
-    # r8 is the index
-    # r9 is the value in input
-    # r10 is the value in key
+    #; get the parameters
+    movq %rdi, %rax     #; rax - input
+    movq %rsi, %rcx     #; rcx - key
+
+    #; rdx is a counter
+    #; r8 is the index
+    #; r9 is the value in input
+    #; r10 is the value in key
     movq $16, %rdx
     movq $0, %r8
     movq $0, %r9
@@ -43,34 +55,78 @@ keyMixing:
         inc %r8
         cmp %r8, %rdx
         jne loop
+
+
+    movq -24(%rbp), %rax
+    movq -16(%rbp), %rcx
+    movq -8(%rbp), %rdx
+    movq -32(%rbp), %r8
+    movq -40(%rbp), %r9
+    movq -48(%rbp), %r10
+    ;#Epilog
+    movq %rbp, %rsp
+    popq %rbp
     ret
 
 byteSubstitution:
-    #; save the address of first 4 bytes input in rax
-    movq %rdi, %rax
+    #; prolog
+    pushq %rbp
+    movq %rsp, %rbp
+    #; backup parameters
+    subq $48, %rsp
+    movq %rax, -24(%rbp)
+    movq %rbx, -16(%rbp)
+    movq %rdx, -8(%rbp)
+    movq %r8, -32(%rbp)
+    movq %r9, -40(%rbp)
+    movq %r10, -48(%rbp)
 
+
+    #; save the address of first 4 bytes input in rax
+    movq %rdi, %rax   
     #; rdx is a counter
     #; r8 is the index
     #; r9 is the value in input
     #; r10 is the value in key
-    movq $16, %rdx
-    movq $0, %r8
-    movq $0, %r9
-    leaq sbox(%rip), %r10
+    movq $16, %rdx    
+    movq $0, %r8     
+    movq $0, %r9     
+         
 
     loopp:
-        movsxb (%rax ,%r8, 1), %r9
-        movsxb (%r10, %r9), %rbx
+        leaq sbox(%rip), %r10
+        movb (%rax ,%r8, 1), %r9b
+        movb (%r10, %r9), %bl   
         movb %bl, (%rax ,%r8, 1)
 
     inc %r8
     cmp %r8, %rdx
     jne loopp
 
+    movq -24(%rbp), %rax
+    movq -16(%rbp), %rbx
+    movq -8(%rbp), %rdx
+    movq -32(%rbp), %r8
+    movq -40(%rbp), %r9
+    movq -48(%rbp), %r10
+    ;#Epilog
+    movq %rbp, %rsp
+    popq %rbp
 	ret
 
 
 shiftRows:
+    #; prolog
+    pushq %rbp
+    movq %rsp, %rbp
+    #; backup parameters
+    subq $40, %rsp
+    movq %rax, -8(%rbp)
+    movq %r8, -16(%rbp)
+    movq %r9, -24(%rbp)
+    movq %r10, -32(%rbp)
+    movq %r11, -40(%rbp)
+
     movq %rdi, %rax
     movq $0, %r8
     movq $0, %r9
@@ -107,6 +163,14 @@ shiftRows:
     movb  %r9b, 14(%rax)
     movb  %r10b, 15(%rax)
     
+    movq -8(%rbp), %rax
+    movq -16(%rbp), %r8
+    movq -24(%rbp), %r9
+    movq -32(%rbp), %r10
+    movq -40(%rbp), %r11
+    ;#Epilog
+    movq %rbp, %rsp
+    popq %rbp
 	ret
 
 cipher:
@@ -115,16 +179,14 @@ cipher:
     movq %rsp, %rbp
     subq $48, %rsp
     #; get the parameters
-    movq %rdi, -48(%rbp)    #; the input address
-    movq %rsi, -8(%rbp)     #; the key address
-    movq %rdx, -40(%rbp)    #; the limit of inner loop (len)
-    #; r11 is a counter
-    #; r8 is the index
-    #; r9 is the value in input
-    movq $9, -16(%rbp)      #; Nr
-    movq $0, -24(%rbp)      #; the counet of outer loop
-    movq $0, -32(%rbp)      #; the counter of inner loop
-    xor %r12, %r12
+    movq %rdi, -8(%rbp)    #; the input address
+    movq %rsi, -16(%rbp)     #; the key address
+    movq %rdx, -24(%rbp)    #; the limit of inner loop (len)
+    movq $9, -32(%rbp)      #; Nr                            (r11)
+    movq $0, -40(%rbp)      #; the counet of outer loop3     (r8)
+    movq $0, -48(%rbp)      #; the counter of inner loop4 (byts)
+
+    
 
     loop4:
     call keyMixing
@@ -132,36 +194,42 @@ cipher:
         call byteSubstitution
         call shiftRows
         call mixColumns
-        movq -8(%rbp), %rsi
-        movq -48(%rbp), %rdi
-        movq -40(%rbp), %rdx
+        movq -8(%rbp), %rdi
+        movq -16(%rbp), %rsi
+        movq -24(%rbp), %rdx
         call keyMixing
-        movq -16(%rbp), %r11
-        movq -24(%rbp), %r14
-        inc %r14
-        movq %r14, -24(%rbp)
-        cmp %r14, %r11
+        movq -32(%rbp), %r11
+        movq -40(%rbp), %r8
+        inc %r8
+        movq %r8, -40(%rbp)
+        cmp %r8, %r11
         jne loop3
 
-    movq $0, %r14
-    movq %r14, -24(%rbp)
+    movq $0, %r8
+    movq %r8, -40(%rbp)
     call byteSubstitution
     call shiftRows
     call keyMixing
-    movq -32(%rbp), %r12    #; the counter
-    movq -40(%rbp), %r13    #; len
-    inc %r12
+
+    movq -48(%rbp), %r9    #; the counter
+    movq -24(%rbp), %r10    #; len
+    inc %r9
     here:
-    movq -48(%rbp), %rdi
-    addq $128, %rdi       #; now the next block all over again
-    movq %rdi, -48(%rbp)
-    movq %r12, -32(%rbp)
-    cmp %r13, %r12
+    movq -8(%rbp), %rdi
+    addq $16, %rdi       #; now the next block all over again
+    movq %rdi, -8(%rbp)
+    movq %r9, -48(%rbp)
+    cmp %r10, %r9
     jne loop4
 
 
     ;#Epilog
+    movq -8(%rbp), %rdi
+    movq -16(%rbp), %rsi
+
+    movq -24(%rbp), %rdx
     movq %rbp, %rsp
     popq %rbp
+
 
 	ret

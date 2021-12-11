@@ -1,4 +1,3 @@
-.global main
 .global	keyMixing, byteSubstitution, shiftRows, cipher
 
 .section	.data
@@ -21,139 +20,121 @@ sbox:	.byte	99,124,119,123,-14,107,111,-59,48,1,103,43,-2,-41,-85,118
 
 .section	.text
 keyMixing:
-    # get the parameters
-    leaq sbox, %rdi
-    leaq sbox +16, %rsi
-    movq %rdi, %rax
-    movq %rsi, %rcx
-
-    # rdx is a counter
-    # r8 is the index
-    # r9 is the value in input
-    # r10 is the value in key
-    movq $16, %rdx
-    movq $0, %r8
-    movq $0, %r9
-    movq $0, %r10
-
-    loop:
-    movsxb (%rax ,%r8, 1), %r9
-    movsxb (%rcx ,%r8, 1), %r10
-    xor %r10, %r9
-    movb %r9b, (%rax ,%r8, 1)
-
-    # movsxb (%rax ,%r8, 1), %r11
-
-    inc %r8
-    cmp %r8, %rdx
-    jne loop
-    ret
+	movq $0,%rcx
+loop:
+	cmpq $16,%rcx
+	je end_1
+	movb (%rsi,%rcx,1),%dl
+	xorb %dl,(%rdi,%rcx,1)
+	incq %rcx
+	jmp loop
+end_1:	ret
 
 
 byteSubstitution:
-
-    #; save the address of first 4 bytes input in rax
-    #; movq %rdi, %rax
-    leaq sbox, %rax
-    #; get the new value from sbox and save in bl
-    #; movb sbox(,%rax, 1), %bl
-    #; update the value of input
-    #; movb %bl, (%rax)
-
-    #; rdx is a counter
-    #; r8 is the index
-    #; r9 is the value in input
-    #; r10 is the value in key
-    movq $16, %rdx
-    movq $0, %r8
-    movq $0, %r9
-    leaq sbox(%rip), %r10
-
-    loop2:
-        movsxb (%rax ,%r8, 1), %r9
-        movsxb (%r10, %r9), %rbx
-        movb %bl, (%rax ,%r8, 1)
-
-
-    inc %r8
-    cmp %r8, %rdx
-    jne loop2
-	ret
+	movq $0,%rcx
+	movq $0, %rdx
+loop_2:
+	cmpq $16,%rcx
+	je end_2
+	# movb (%rdi,%rcx,1),%dl
+	leaq sbox(%rip), %r8
+	# addq %r8, %rdx
+	# movb (%rdx), %dl
+	movb (%r8,%rdx,1),%dl
+	movb %dl,(%rdi,%rcx,1)
+	incq %rcx
+	jmp loop_2
+end_2:	ret
 
 
 shiftRows:
-    movq %rdi, %rax
-    movq $0, %r8
-    movq $0, %r9
-    movq $0, %r10
-    movq $0, %r11
+	movq $0,%rcx
+loop_3:
+	cmpq $4,%rcx
+	je end_3
+	movl (%rdi,%rcx,4),%edx
+	movq %rcx,%r8
+	salq $3,%r8 
+mini_loop:
+	cmp $0,%r8
+	je enter_to_memory
+	rorl %edx
+	decq %r8
+	jmp mini_loop
+enter_to_memory:
+	movl %edx,(%rdi,%rcx,4)
+	incq %rcx
+	jmp loop_3
+end_3:	ret
 
-    movb 4(%rax), %r8b
-    movb 5(%rax), %r9b
-    movb 6(%rax), %r10b
-    movb 7(%rax), %r11b
 
-    movb  %r9b, 4(%rax)
-    movb  %r10b,5(%rax)
-    movb  %r11b,6(%rax)
-    movb  %r8b, 7(%rax)
-
-    movb 8(%rax), %r8b
-    movb 9(%rax), %r9b
-    movb 10(%rax), %r10b
-    movb 11(%rax), %r11b
-
-    movb  %r10b, 8(%rax)
-    movb  %r11b, 9(%rax)
-    movb  %r8b, 10(%rax)
-    movb  %r9b, 11(%rax)
-
-    movb 12(%rax), %r8b
-    movb 13(%rax), %r9b
-    movb 14(%rax), %r10b
-    movb 15(%rax), %r11b
-
-    movb  %r11b, 12(%rax)
-    movb  %r8b, 13(%rax)
-    movb  %r9b, 14(%rax)
-    movb  %r10b, 15(%rax)
-	ret
-
-main:
 cipher:
-    # get the parameters
-    leaq sbox, %rdi
-    leaq sbox +16, %rsi
-    leaq sbox +32, %rdx
-    movq %rdi, %rax
-    movq %rsi, %rcx
-    #; put the len in r8d reg
-    movl 0(%rdx), %r8d
-
-    #; r11 is a counter
-    #; r8 is the index
-    #; r9 is the value in input
-    movq $8, %r11
-    movq $0, %r8
-    movq $0, %r9
-
-    loop3:
-        call byteSubstitution
-        break1:
-        call shiftRows
-        break2:
-        call mixColumns
-        break3:
-        call keyMixing
-        inc %r8
-        cmp %r8, %r11
-        je loop3
-
-    call byteSubstitution
-    call shiftRows
-    call keyMixing
-
-    nop
-
-
+	pushq %rdi
+	pushq %rsi
+	pushq %rdx
+	pushq %rcx
+	pushq %r8
+	movq %rdx,%rbx #save rdx to avoid to reload after each call of function
+	movq $0,%r15
+main_loop:
+	cmp %rbx,%r15
+	je end_4
+	call keyMixing
+	movq $0,%r13	
+loop_9:
+	cmp $9,%r13
+	je end_9_loop
+	call byteSubstitution
+	call shiftRows
+	pushq %rax
+	pushq %rdi
+	pushq %rsi
+	pushq %rdx
+	pushq %rcx
+	pushq %r8
+	pushq %r9
+	pushq %r10
+	pushq %r11
+	call mixColumns
+	popq %r11
+	popq %r10
+	popq %r9
+	popq %r8
+	popq %rcx
+	popq %rdx
+	popq %rsi
+	popq %rdi
+	popq %rax
+	call keyMixing
+	incq %r13
+	jmp loop_9
+end_9_loop:
+	call byteSubstitution
+	call shiftRows
+	call keyMixing
+	incq %r15
+	addq $16,%rdi
+	jmp main_loop
+end_4:
+	popq %r8
+	popq %rcx
+	popq %rdx
+	popq %rsi
+	popq %rdi
 	ret
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
