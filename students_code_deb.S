@@ -37,7 +37,7 @@ byteSubstitution:
 loop_2:
 	cmpq $16,%rcx
 	je end_2
-	# movb (%rdi,%rcx,1),%dl
+	movb (%rdi,%rcx,1),%dl
 	leaq sbox(%rip), %r8
 	# addq %r8, %rdx
 	# movb (%rdx), %dl
@@ -129,12 +129,127 @@ end_4:
 
 
 
+cipher:
+    #; get the parameters
+	pushq %rax
+	pushq %rdi
+	pushq %rsi
+	pushq %rdx
+	pushq %rcx
+	pushq %r8
+	pushq %r9
+	pushq %r10
+	pushq %r11
+    movq $0, %r14      #; the counet of outer_loop
+
+    outer_loop:
+    movq $0, %r13       #; the counet of inner_loop
+    call keyMixing
+    inner_loop:
+        call byteSubstitution
+        call shiftRows
+        pushq %rax
+        pushq %rdi
+        pushq %rsi
+        pushq %rdx
+        pushq %rcx
+        pushq %r8
+        pushq %r9
+        pushq %r10
+        pushq %r11
+        call mixColumns
+        popq %r11
+        popq %r10
+        popq %r9
+        popq %r8
+        popq %rcx
+        popq %rdx
+        popq %rsi
+        popq %rdi
+        popq %rax
+        call keyMixing
+        inc %r13
+        cmp $9, %r13         
+        jne inner_loop
+    call byteSubstitution
+    call shiftRows
+    call keyMixing
+
+    addq $16, %rdi       #; now the next block all over again
+    cmp %rdx, %r14
+    jne outer_loop
+
+	popq %r11
+	popq %r10
+	popq %r9
+	popq %r8
+	popq %rcx
+	popq %rdx
+	popq %rsi
+	popq %rdi
+	popq %rax
+	ret
 
 
 
 
+cipher:
+    #; prolog
+    pushq %rbp
+    movq %rsp, %rbp
+    subq $48, %rsp
+    #; get the parameters
+    movq %rdi, -8(%rbp)    #; the input address
+    movq %rsi, -16(%rbp)     #; the key address
+    movq %rdx, -24(%rbp)    #; the limit of inner loop (len)
+    movq $9, -32(%rbp)      #; Nr                            (r11)
+    movq $0, -40(%rbp)      #; the counet of outer loop3     (r8)
+    movq $0, -48(%rbp)      #; the counter of inner loop4 (byts)
+
+    
+
+    loop4:
+    call keyMixing
+    loop3:
+        call byteSubstitution
+        call shiftRows
+        call mixColumns
+        movq -8(%rbp), %rdi
+        movq -16(%rbp), %rsi
+        movq -24(%rbp), %rdx
+        call keyMixing
+        movq -32(%rbp), %r11
+        movq -40(%rbp), %r8
+        inc %r8
+        movq %r8, -40(%rbp)
+        cmp %r8, %r11
+        jne loop3
+
+    movq $0, %r8
+    movq %r8, -40(%rbp)
+    call byteSubstitution
+    call shiftRows
+    call keyMixing
+
+    movq -48(%rbp), %r9    #; the counter
+    movq -24(%rbp), %r10    #; len
+    inc %r9
+    here:
+    movq -8(%rbp), %rdi
+    addq $16, %rdi       #; now the next block all over again
+    movq %rdi, -8(%rbp)
+    movq %r9, -48(%rbp)
+    cmp %r10, %r9
+    jne loop4
 
 
+    ;#Epilog
+    movq -8(%rbp), %rdi
+    movq -16(%rbp), %rsi
+
+    movq -24(%rbp), %rdx
+    movq %rbp, %rsp
+    popq %rbp
 
 
-
+	ret

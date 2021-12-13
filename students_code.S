@@ -21,17 +21,6 @@ sbox:	.byte	99,124,119,123,-14,107,111,-59,48,1,103,43,-2,-41,-85,118
 
 .section	.text
 keyMixing:
-    #; prolog
-    pushq %rbp
-    movq %rsp, %rbp
-    #; backup parameters
-    subq $48, %rsp
-    movq %rax, -24(%rbp)
-    movq %rcx, -16(%rbp)
-    movq %rdx, -8(%rbp)
-    movq %r8, -32(%rbp)
-    movq %r9, -40(%rbp)
-    movq %r10, -48(%rbp)
 
     #; get the parameters
     movq %rdi, %rax     #; rax - input
@@ -47,8 +36,8 @@ keyMixing:
     movq $0, %r10
 
     loop:
-        movsxb (%rax ,%r8, 1), %r9
-        movsxb (%rcx ,%r8, 1), %r10
+        movb (%rax ,%r8, 1), %r9b
+        movb (%rcx ,%r8, 1), %r10b
         xor %r10, %r9
         movb %r9b, (%rax ,%r8, 1)
 
@@ -56,31 +45,9 @@ keyMixing:
         cmp %r8, %rdx
         jne loop
 
-
-    movq -24(%rbp), %rax
-    movq -16(%rbp), %rcx
-    movq -8(%rbp), %rdx
-    movq -32(%rbp), %r8
-    movq -40(%rbp), %r9
-    movq -48(%rbp), %r10
-    ;#Epilog
-    movq %rbp, %rsp
-    popq %rbp
     ret
 
 byteSubstitution:
-    #; prolog
-    pushq %rbp
-    movq %rsp, %rbp
-    #; backup parameters
-    subq $48, %rsp
-    movq %rax, -24(%rbp)
-    movq %rbx, -16(%rbp)
-    movq %rdx, -8(%rbp)
-    movq %r8, -32(%rbp)
-    movq %r9, -40(%rbp)
-    movq %r10, -48(%rbp)
-
 
     #; save the address of first 4 bytes input in rax
     movq %rdi, %rax   
@@ -92,91 +59,48 @@ byteSubstitution:
     movq $0, %r8     
     movq $0, %r9     
          
-
     loopp:
         leaq sbox(%rip), %r10
         movb (%rax ,%r8, 1), %r9b
         movb (%r10, %r9), %bl   
         movb %bl, (%rax ,%r8, 1)
-
     inc %r8
     cmp %r8, %rdx
     jne loopp
-
-    movq -24(%rbp), %rax
-    movq -16(%rbp), %rbx
-    movq -8(%rbp), %rdx
-    movq -32(%rbp), %r8
-    movq -40(%rbp), %r9
-    movq -48(%rbp), %r10
-    ;#Epilog
-    movq %rbp, %rsp
-    popq %rbp
 	ret
 
 
 shiftRows:
-    #; prolog
-    pushq %rbp
-    movq %rsp, %rbp
-    #; backup parameters
-    subq $40, %rsp
-    movq %rax, -8(%rbp)
-    movq %r8, -16(%rbp)
-    movq %r9, -24(%rbp)
-    movq %r10, -32(%rbp)
-    movq %r11, -40(%rbp)
-
-    movq %rdi, %rax
     movq $0, %r8
     movq $0, %r9
-    movq $0, %r10
-    movq $0, %r11
-
-    movb 4(%rax), %r8b
-    movb 5(%rax), %r9b
-    movb 6(%rax), %r10b
-    movb 7(%rax), %r11b
-
-    movb  %r9b, 4(%rax)
-    movb  %r10b,5(%rax)
-    movb  %r11b,6(%rax)
-    movb  %r8b, 7(%rax)
-
-    movb 8(%rax), %r8b
-    movb 9(%rax), %r9b
-    movb 10(%rax), %r10b
-    movb 11(%rax), %r11b
-
-    movb  %r10b, 8(%rax)
-    movb  %r11b, 9(%rax)
-    movb  %r8b, 10(%rax)
-    movb  %r9b, 11(%rax)
-
-    movb 12(%rax), %r8b
-    movb 13(%rax), %r9b
-    movb 14(%rax), %r10b
-    movb 15(%rax), %r11b
-
-    movb  %r11b, 12(%rax)
-    movb  %r8b, 13(%rax)
-    movb  %r9b, 14(%rax)
-    movb  %r10b, 15(%rax)
-    
-    movq -8(%rbp), %rax
-    movq -16(%rbp), %r8
-    movq -24(%rbp), %r9
-    movq -32(%rbp), %r10
-    movq -40(%rbp), %r11
-    ;#Epilog
-    movq %rbp, %rsp
-    popq %rbp
+    movq $0, %rcx
+loop_sr_1:
+    cmpq $4, %r8
+    je end_sr
+    movl (%rdi, %r8, 4), %r9d
+    rorl %cl, %r9d
+    movl %r9d, (%rdi, %r8, 4)
+    addb $8, %cl
+    inc %r8
+    jmp loop_sr_1
+    end_sr:
 	ret
 
 cipher:
     #; prolog
     pushq %rbp
     movq %rsp, %rbp
+
+    pushq %rax
+	pushq %rdi
+	pushq %rsi
+	pushq %rdx
+	pushq %rcx
+	pushq %r8
+	pushq %r9
+	pushq %r10
+	pushq %r11
+
     subq $48, %rsp
     #; get the parameters
     movq %rdi, -8(%rbp)    #; the input address
@@ -186,14 +110,32 @@ cipher:
     movq $0, -40(%rbp)      #; the counet of outer loop3     (r8)
     movq $0, -48(%rbp)      #; the counter of inner loop4 (byts)
 
-    
-
     loop4:
     call keyMixing
     loop3:
         call byteSubstitution
         call shiftRows
+
+        pushq %rax
+        pushq %rdi
+        pushq %rsi
+        pushq %rdx
+        pushq %rcx
+        pushq %r8
+        pushq %r9
+        pushq %r10
+        pushq %r11
         call mixColumns
+        popq %r11
+        popq %r10
+        popq %r9
+        popq %r8
+        popq %rcx
+        popq %rdx
+        popq %rsi
+        popq %rdi
+        popq %rax
+
         movq -8(%rbp), %rdi
         movq -16(%rbp), %rsi
         movq -24(%rbp), %rdx
@@ -228,8 +170,17 @@ cipher:
     movq -16(%rbp), %rsi
 
     movq -24(%rbp), %rdx
+
+    popq %r11
+	popq %r10
+	popq %r9
+	popq %r8
+	popq %rcx
+	popq %rdx
+	popq %rsi
+	popq %rdi
+	popq %rax
     movq %rbp, %rsp
     popq %rbp
-
 
 	ret
